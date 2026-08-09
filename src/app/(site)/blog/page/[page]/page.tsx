@@ -10,12 +10,17 @@ import { site } from '../../../../../site.config'
 type Params = { page: string }
 
 export async function generateStaticParams(): Promise<Params[]> {
-  const payload = await getPayloadClient()
-  const { totalDocs } = await payload.count({ collection: 'posts' })
-  const totalPages = Math.max(1, Math.ceil(totalDocs / POSTS_PER_PAGE))
-  return Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => ({
-    page: String(index + 2),
-  }))
+  try {
+    const payload = await getPayloadClient()
+    const { totalDocs } = await payload.count({ collection: 'posts' })
+    const totalPages = Math.max(1, Math.ceil(totalDocs / POSTS_PER_PAGE))
+    return Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => ({
+      page: String(index + 2),
+    }))
+  } catch {
+    // DB unreachable at build time — pages render on demand at runtime
+    return []
+  }
 }
 
 export async function generateMetadata({
