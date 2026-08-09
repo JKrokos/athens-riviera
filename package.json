@@ -1,0 +1,43 @@
+{
+  "name": "athens-riviera",
+  "version": "1.0.0",
+  "description": "athensriviera.eu — Next.js + Payload CMS",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "railway:start": "payload migrate && next start",
+    "payload": "payload",
+    "generate:types": "payload generate:types",
+    "generate:importmap": "payload generate:importmap",
+    "migrate": "payload migrate",
+    "migrate:create": "payload migrate:create",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@payloadcms/db-postgres": "^3.58.0",
+    "@payloadcms/next": "^3.58.0",
+    "@payloadcms/richtext-lexical": "^3.58.0",
+    "@payloadcms/storage-s3": "^3.58.0",
+    "@payloadcms/ui": "^3.58.0",
+    "@types/node": "^22.5.4",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "autoprefixer": "^10.4.19",
+    "graphql": "^16.9.0",
+    "jsdom": "^30.0.1",
+    "next": "^16.2.6",
+    "payload": "^3.58.0",
+    "postcss": "^8.4.38",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "sharp": "^0.34.2",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

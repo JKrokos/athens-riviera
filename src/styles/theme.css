@@ -1,0 +1,23 @@
+/* ---------------------------------------------------------------------------
+   Athens Riviera brand tokens. This file is per-site: the sister sites swap
+   these values (and the fonts wired up in src/app/fonts.ts) while sharing
+   every component. Colors are space-separated RGB so Tailwind can apply
+   alpha values.
+   ------------------------------------------------------------------------ */
+
+:root {
+  /* Sea-light background, deep navy ink, riviera blue accent (logo blue),
+     with the logo's sun-yellow reserved for the brand lockup */
+  --c-bg: 245 249 253;
+  --c-surface: 255 255 255;
+  --c-ink: 13 24 40;
+  --c-ink-soft: 60 74 95;
+  --c-muted: 112 126 146;
+  --c-line: 216 227 238;
+  --c-accent: 43 90 214;
+  --c-accent-strong: 28 64 166;
+  --c-accent-soft: 227 236 252;
+  --c-footer: 10 20 36;
+
+  --radius-card: 1.25rem;
+}
