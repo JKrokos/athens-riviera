@@ -8,7 +8,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "railway:start": "payload migrate && next start",
+    "railway:start": "node scripts/print-db-target.mjs && payload migrate && next start",
     "payload": "payload",
     "generate:types": "payload generate:types",
     "generate:importmap": "payload generate:importmap",
