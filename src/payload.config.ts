@@ -119,6 +119,21 @@ export default buildConfig({
           `IMPORT_ON_BOOT set but ${listings.totalDocs} listings exist — skipping`,
         )
       }
+    } else if (importFlag === 'taxonomy-images') {
+      // Content is already imported — only fill in category/area cover images
+      payload.logger.info('IMPORT_ON_BOOT=taxonomy-images: scheduling cover assignment')
+      setTimeout(async () => {
+        try {
+          const { assignTaxonomyImages } = await import('./lib/importer')
+          await assignTaxonomyImages(payload, (message) =>
+            payload.logger.info(`[wp-import] ${message}`),
+          )
+        } catch (error) {
+          payload.logger.error(
+            `[wp-import] taxonomy images failed: ${error instanceof Error ? error.message : error}`,
+          )
+        }
+      }, 20_000)
     }
   },
 })

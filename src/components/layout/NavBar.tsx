@@ -135,9 +135,6 @@ export function NavBar({
           >
             <SearchIcon />
           </Link>
-          <Link href="/promote" className="btn-primary hidden whitespace-nowrap sm:inline-flex">
-            Promote your business
-          </Link>
           <button
             type="button"
             aria-label={open ? 'Close menu' : 'Open menu'}
@@ -190,9 +187,6 @@ export function NavBar({
                 )}
               </div>
             ))}
-            <Link href="/promote" className="btn-primary w-full">
-              Promote your business
-            </Link>
           </nav>
         </div>
       ) : null}

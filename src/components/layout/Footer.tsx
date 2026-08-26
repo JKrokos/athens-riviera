@@ -124,9 +124,6 @@ export async function Footer() {
               {settings.address || `${site.place.name}, ${site.place.countryName}`}
             </li>
           </ul>
-          <Link href="/promote" className="btn-primary mt-5">
-            Promote your business
-          </Link>
         </div>
       </div>
 

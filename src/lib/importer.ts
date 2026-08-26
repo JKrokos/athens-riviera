@@ -1097,6 +1097,141 @@ async function finalize(
   log('site settings updated (nav, explore links, contact, SEO defaults)')
 }
 
+// ------------------------- taxonomy cover images ---------------------------
+
+// The old WordPress sites never set term images, so category and area covers
+// come from their own content: each term without an image gets the lead
+// gallery photo of its strongest listing (featured first, then largest
+// gallery), no photo serving two terms. Manual choices in the CMS are kept.
+export async function assignTaxonomyImages(
+  payload: Payload,
+  log: Log,
+): Promise<{ categories: number; areas: number }> {
+  const { docs: listings } = await payload.find({
+    collection: 'listings',
+    where: { published: { equals: true } },
+    limit: 5000,
+    depth: 0,
+  })
+
+  const asId = (value: unknown): number | null =>
+    typeof value === 'number'
+      ? value
+      : value && typeof value === 'object' && 'id' in value
+        ? ((value as { id: number }).id ?? null)
+        : null
+
+  const ranked = [...listings].sort((a, b) => {
+    const rank = (l: (typeof listings)[number]) =>
+      (l.featured ? 1000 : 0) + Math.min(999, l.gallery?.length ?? 0)
+    return rank(b) - rank(a)
+  })
+
+  const byCategory = new Map<number, typeof ranked>()
+  const byArea = new Map<number, typeof ranked>()
+  for (const listing of ranked) {
+    for (const category of listing.categories ?? []) {
+      const id = asId(category)
+      if (id === null) continue
+      if (!byCategory.has(id)) byCategory.set(id, [])
+      byCategory.get(id)!.push(listing)
+    }
+    const areaId = asId(listing.area)
+    if (areaId !== null) {
+      if (!byArea.has(areaId)) byArea.set(areaId, [])
+      byArea.get(areaId)!.push(listing)
+    }
+  }
+
+  const usedMedia = new Set<number>()
+  const pickImage = (candidates: typeof ranked | undefined): number | null => {
+    for (const listing of candidates ?? []) {
+      for (const item of listing.gallery ?? []) {
+        const mediaId = asId(item)
+        if (mediaId !== null && !usedMedia.has(mediaId)) {
+          usedMedia.add(mediaId)
+          return mediaId
+        }
+      }
+    }
+    return null
+  }
+
+  let categoriesSet = 0
+  const { docs: categories } = await payload.find({
+    collection: 'categories',
+    limit: 500,
+    depth: 0,
+    sort: 'order',
+  })
+  for (const category of categories) {
+    const current = asId(category.image)
+    if (current !== null) {
+      usedMedia.add(current)
+      continue
+    }
+    const mediaId = pickImage(byCategory.get(category.id))
+    if (mediaId === null) continue
+    await payload.update({
+      collection: 'categories',
+      id: category.id,
+      data: { image: mediaId },
+    })
+    categoriesSet += 1
+    log(`  ✓ category image: ${category.slug}`)
+  }
+
+  let areasSet = 0
+  const { docs: areas } = await payload.find({
+    collection: 'areas',
+    limit: 500,
+    depth: 0,
+    sort: 'order',
+  })
+  for (const area of areas) {
+    const current = asId(area.image)
+    if (current !== null) {
+      usedMedia.add(current)
+      continue
+    }
+    const mediaId = pickImage(byArea.get(area.id))
+    if (mediaId === null) continue
+    await payload.update({ collection: 'areas', id: area.id, data: { image: mediaId } })
+    areasSet += 1
+    log(`  ✓ area image: ${area.slug}`)
+  }
+
+  log(`taxonomy images assigned: ${categoriesSet} categories, ${areasSet} areas`)
+  return { categories: categoriesSet, areas: areasSet }
+}
+
+export const startBackgroundTaxonomyImages = (payload: Payload): boolean => {
+  if (status.state === 'running') return false
+  status.state = 'running'
+  status.startedAt = new Date().toISOString()
+  status.finishedAt = undefined
+  status.error = undefined
+
+  const log: Log = (message) => {
+    payload.logger.info(`[wp-import] ${message}`)
+    status.lastMessage = message
+    status.recentLog.push(`${new Date().toISOString()} ${message}`)
+    if (status.recentLog.length > 300) status.recentLog.splice(0, 100)
+  }
+
+  void assignTaxonomyImages(payload, log)
+    .then(() => {
+      status.state = 'done'
+      status.finishedAt = new Date().toISOString()
+    })
+    .catch((error) => {
+      status.state = 'error'
+      status.error = error instanceof Error ? error.message : String(error)
+      status.finishedAt = new Date().toISOString()
+    })
+  return true
+}
+
 // --------------------------------- runner ----------------------------------
 
 export async function runWordPressImport(payload: Payload, log: Log): Promise<ImportSummary> {
@@ -1116,6 +1251,7 @@ export async function runWordPressImport(payload: Payload, log: Log): Promise<Im
   )
   const posts = await importPosts(payload, htmlToLexical, log)
   await finalize(payload, categoryIds, areaIds, harvested, log)
+  await assignTaxonomyImages(payload, log)
 
   const summary: ImportSummary = {
     categories: categoryIds.size,
