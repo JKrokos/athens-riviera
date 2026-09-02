@@ -1232,6 +1232,62 @@ export const startBackgroundTaxonomyImages = (payload: Payload): boolean => {
   return true
 }
 
+// ------------------------------ media refetch ------------------------------
+
+// Re-download every media file from its original WordPress URL and store it
+// again through the active storage adapter. For recovering after files were
+// lost (e.g. written to an ephemeral disk): documents, ids, filenames and
+// relationships stay untouched — only the binaries and generated sizes are
+// replaced.
+export async function refetchMedia(
+  payload: Payload,
+  log: Log,
+): Promise<{ refreshed: number; failed: number; skipped: number }> {
+  let refreshed = 0
+  let failed = 0
+  let skipped = 0
+  let page = 1
+  log('media refetch: starting')
+  for (;;) {
+    const result = await payload.find({
+      collection: 'media',
+      limit: 100,
+      page,
+      depth: 0,
+      sort: 'id',
+    })
+    for (const doc of result.docs) {
+      if (!doc.sourceUrl) {
+        skipped += 1
+        continue
+      }
+      try {
+        const data = await fetchBuffer(doc.sourceUrl)
+        const name =
+          doc.filename || decodeURIComponent(doc.sourceUrl.split('/').pop() || 'image.jpg')
+        await payload.update({
+          collection: 'media',
+          id: doc.id,
+          data: {},
+          file: { data, name, mimetype: mimeFor(name.toLowerCase()), size: data.length },
+          overwriteExistingFiles: true,
+        })
+        refreshed += 1
+        if (refreshed % 25 === 0) log(`  … media refreshed ${refreshed}`)
+      } catch (error) {
+        failed += 1
+        log(
+          `    ! media refetch failed #${doc.id} ${doc.sourceUrl}: ${error instanceof Error ? error.message : error}`,
+        )
+      }
+    }
+    if (!result.hasNextPage) break
+    page += 1
+  }
+  log(`media refetch done: ${refreshed} refreshed, ${failed} failed, ${skipped} without source`)
+  return { refreshed, failed, skipped }
+}
+
 // --------------------------------- runner ----------------------------------
 
 export async function runWordPressImport(payload: Payload, log: Log): Promise<ImportSummary> {

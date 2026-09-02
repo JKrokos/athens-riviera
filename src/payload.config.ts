@@ -69,7 +69,8 @@ export default buildConfig({
           accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
           secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
         },
-        forcePathStyle: true,
+        // Railway buckets use virtual-hosted URLs; older buckets may need path style
+        forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
       },
     }),
   ],
@@ -77,6 +78,18 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   onInit: async (payload) => {
+    // Make the storage backend visible in the deploy logs: media written to
+    // the container disk disappears on the next deploy
+    if (s3Enabled) {
+      payload.logger.info(
+        `[storage] media in S3 bucket "${process.env.S3_BUCKET}" via ${process.env.S3_ENDPOINT || 'default endpoint'}`,
+      )
+    } else if (process.env.NODE_ENV === 'production') {
+      payload.logger.warn(
+        '[storage] S3 is not configured — media is stored on the container disk and will be LOST on redeploy',
+      )
+    }
+
     // Create the first admin user on a fresh database so /admin is never
     // left open to whoever visits it first
     const adminEmail = process.env.ADMIN_EMAIL
@@ -118,6 +131,24 @@ export default buildConfig({
         payload.logger.info(
           `IMPORT_ON_BOOT set but ${listings.totalDocs} listings exist — skipping`,
         )
+      }
+    } else if (importFlag === 'media-refetch') {
+      // Recover lost media binaries from the original WordPress URLs.
+      // Pointless without durable storage — the files would be lost again.
+      if (!s3Enabled) {
+        payload.logger.error('IMPORT_ON_BOOT=media-refetch ignored: S3 storage is not configured')
+      } else {
+        payload.logger.info('IMPORT_ON_BOOT=media-refetch: scheduling media recovery')
+        setTimeout(async () => {
+          try {
+            const { refetchMedia } = await import('./lib/importer')
+            await refetchMedia(payload, (message) => payload.logger.info(`[wp-import] ${message}`))
+          } catch (error) {
+            payload.logger.error(
+              `[wp-import] media refetch failed: ${error instanceof Error ? error.message : error}`,
+            )
+          }
+        }, 20_000)
       }
     } else if (importFlag === 'taxonomy-images') {
       // Content is already imported — only fill in category/area cover images
