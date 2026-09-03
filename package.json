@@ -1,14 +1,14 @@
 {
   "name": "athens-riviera",
   "version": "1.0.0",
-  "description": "athensriviera.eu — Next.js + Payload CMS",
+  "description": "athensriviera.eu \u2014 Next.js + Payload CMS",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "railway:start": "node scripts/print-db-target.mjs && node scripts/ensure-database.mjs && payload migrate && next start",
+    "railway:start": "node scripts/print-db-target.mjs && node scripts/ensure-database.mjs && payload migrate && (node scripts/warm-cache.mjs &) && next start",
     "payload": "payload",
     "generate:types": "payload generate:types",
     "generate:importmap": "payload generate:importmap",
