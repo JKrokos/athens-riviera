@@ -77,6 +77,12 @@ export const Posts: CollectionConfig = {
     },
     { name: 'featuredImage', type: 'upload', relationTo: 'media' },
     {
+      name: 'area',
+      type: 'relationship',
+      relationTo: 'areas',
+      admin: { position: 'sidebar', description: 'Shows the story in the guides of that area.' },
+    },
+    {
       name: 'publishedAt',
       type: 'date',
       admin: { position: 'sidebar', date: { pickerAppearance: 'dayOnly' } },

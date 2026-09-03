@@ -252,6 +252,24 @@ export interface Area {
    */
   description?: string | null;
   /**
+   * Longer guide shown on the area page below the header.
+   */
+  content?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
    * Cover image for the area card and page header.
    */
   image?: (number | null) | Media;
@@ -376,6 +394,10 @@ export interface Post {
    */
   contentHtml?: string | null;
   featuredImage?: (number | null) | Media;
+  /**
+   * Shows the story in the guides of that area.
+   */
+  area?: (number | null) | Area;
   publishedAt?: string | null;
   language?: ('en' | 'el') | null;
   sourceUrl?: string | null;
@@ -590,6 +612,7 @@ export interface AreasSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
   description?: T;
+  content?: T;
   image?: T;
   gallery?: T;
   featured?: T;
@@ -652,6 +675,7 @@ export interface PostsSelect<T extends boolean = true> {
   content?: T;
   contentHtml?: T;
   featuredImage?: T;
+  area?: T;
   publishedAt?: T;
   language?: T;
   sourceUrl?: T;
