@@ -4,12 +4,9 @@ import { notFound } from 'next/navigation'
 
 import { Breadcrumbs } from '../../../../components/Breadcrumbs'
 import { ListingCard } from '../../../../components/cards/ListingCard'
-import { PostCard } from '../../../../components/cards/PostCard'
-import { RichTextContent } from '../../../../components/RichTextContent'
-import { SectionHeading } from '../../../../components/ui/SectionHeading'
 import { Gallery, type GalleryImage } from '../../../../components/listing/Gallery'
 import { JsonLd } from '../../../../components/seo/JsonLd'
-import { getAreaBySlug, getAreas, getListings, getPostsByArea } from '../../../../lib/data'
+import { getAreaBySlug, getAreas, getListings } from '../../../../lib/data'
 import { toListingCardData } from '../../../../lib/dto'
 import { asMedia, mediaAlt, mediaUrl } from '../../../../lib/media'
 import { areaMeta, collectionPageJsonLd } from '../../../../lib/seo'
@@ -56,10 +53,7 @@ export default async function AreaPage({ params }: { params: Promise<Params> }) 
   const area = await getAreaBySlug(decodeURIComponent(slug))
   if (!area) notFound()
 
-  const [listings, guides] = await Promise.all([
-    getListings({ areaId: area.id }),
-    getPostsByArea(area.id),
-  ])
+  const listings = await getListings({ areaId: area.id })
   const groups = groupByCategory(listings)
   const imageUrl = mediaUrl(area.image, 'hero')
   const gallery: GalleryImage[] = (area.gallery ?? [])
@@ -108,24 +102,9 @@ export default async function AreaPage({ params }: { params: Promise<Params> }) 
 
       <section className="container-site py-10 sm:py-12">
         <Breadcrumbs items={[{ name: area.name }]} />
-        {area.content ? (
-          <div className="mb-12 max-w-3xl">
-            <RichTextContent data={area.content} />
-          </div>
-        ) : null}
         {gallery.length > 0 ? (
           <div className="mb-12">
             <Gallery images={gallery} name={area.name} />
-          </div>
-        ) : null}
-        {guides.length > 0 ? (
-          <div className="mb-14">
-            <SectionHeading kicker="Guides" title={`Discover ${area.name}`} />
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {guides.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </div>
           </div>
         ) : null}
         {groups.length === 0 ? (

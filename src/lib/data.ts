@@ -194,19 +194,6 @@ export const getRecentPosts = async (limit = 3): Promise<Post[]> =>
     return docs
   })
 
-export const getPostsByArea = async (areaId: number, limit = 6): Promise<Post[]> =>
-  safe([], async () => {
-    const payload = await getPayloadClient()
-    const { docs } = await payload.find({
-      collection: 'posts',
-      where: { area: { equals: areaId } },
-      sort: '-publishedAt',
-      limit,
-      depth: 1,
-    })
-    return docs
-  })
-
 export const getPostBySlug = async (slug: string): Promise<Post | undefined> =>
   safe(undefined, async () => {
     const payload = await getPayloadClient()

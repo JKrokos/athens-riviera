@@ -42,11 +42,6 @@ export const Areas: CollectionConfig = {
       admin: { description: 'Shown on the area page and used as its meta description.' },
     },
     {
-      name: 'content',
-      type: 'richText',
-      admin: { description: 'Longer guide shown on the area page below the header.' },
-    },
-    {
       name: 'image',
       type: 'upload',
       relationTo: 'media',

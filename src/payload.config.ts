@@ -156,30 +156,6 @@ export default buildConfig({
           }
         }, 20_000)
       }
-    } else if (importFlag === 'ftg-area') {
-      // Pull a destination guide from flyingtogreece.com into one area
-      const pageSlug = process.env.FTG_AREA_PAGE
-      const areaSlug = process.env.FTG_AREA_SLUG
-      if (!pageSlug || !areaSlug) {
-        payload.logger.error('IMPORT_ON_BOOT=ftg-area needs FTG_AREA_PAGE and FTG_AREA_SLUG')
-      } else {
-        payload.logger.info(`IMPORT_ON_BOOT=ftg-area: scheduling import of /${pageSlug}/ → ${areaSlug}`)
-        setTimeout(async () => {
-          try {
-            const { importFlyingToGreeceArea } = await import('./lib/importFlyingToGreece')
-            const summary = await importFlyingToGreeceArea(
-              payload,
-              (message) => payload.logger.info(`[ftg-import] ${message}`),
-              { pageSlug, areaSlug },
-            )
-            payload.logger.info(`[ftg-import] finished: ${JSON.stringify(summary)}`)
-          } catch (error) {
-            payload.logger.error(
-              `[ftg-import] failed: ${error instanceof Error ? error.message : error}`,
-            )
-          }
-        }, 20_000)
-      }
     } else if (importFlag === 'taxonomy-images') {
       // Content is already imported — only fill in category/area cover images
       payload.logger.info('IMPORT_ON_BOOT=taxonomy-images: scheduling cover assignment')

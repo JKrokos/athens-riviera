@@ -24,7 +24,7 @@ const POST_LIMIT = Number(process.env.IMPORT_POST_LIMIT || 0) || Infinity
 const MAX_IMAGES = Number(process.env.IMPORT_MAX_IMAGES_PER_LISTING || 12)
 const MAX_POST_INLINE_IMAGES = 6
 
-export type Log = (message: string) => void
+type Log = (message: string) => void
 
 export type ImportSummary = {
   categories: number
@@ -101,10 +101,6 @@ async function fetchRaw(url: string, asBuffer: boolean, tries = 6): Promise<stri
         // Gone for good (dead media on the old site) — retrying won't help
         throw Object.assign(new Error(`HTTP ${response.status}`), { permanent: true })
       }
-      if (response.status === 403 || response.status === 429) {
-        // Rate limited by the source's firewall — give it a real breather
-        throw Object.assign(new Error(`HTTP ${response.status}`), { cooldown: true })
-      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       if (asBuffer) return Buffer.from(await response.arrayBuffer())
       const text = await response.text()
@@ -113,21 +109,16 @@ async function fetchRaw(url: string, asBuffer: boolean, tries = 6): Promise<stri
       if (text.includes(CHALLENGE_MARKER)) throw new Error('bot challenge page')
       return text
     } catch (error) {
-      const flags = error as { permanent?: boolean; cooldown?: boolean }
-      if (flags.permanent || attempt === tries) throw error
-      await sleep(
-        flags.cooldown
-          ? 20_000 * attempt
-          : 1500 * attempt + Math.floor(Math.random() * 500),
-      )
+      if ((error as { permanent?: boolean }).permanent || attempt === tries) throw error
+      await sleep(1500 * attempt + Math.floor(Math.random() * 500))
     }
   }
   throw new Error('unreachable')
 }
 
-export const fetchText = (url: string): Promise<string> => fetchRaw(url, false) as Promise<string>
+const fetchText = (url: string): Promise<string> => fetchRaw(url, false) as Promise<string>
 const fetchBuffer = (url: string): Promise<Buffer> => fetchRaw(url, true) as Promise<Buffer>
-export const fetchJson = async (url: string): Promise<unknown> => JSON.parse(await fetchText(url))
+const fetchJson = async (url: string): Promise<unknown> => JSON.parse(await fetchText(url))
 
 async function fetchAllRestPages(base: string, limit: number): Promise<Record<string, any>[]> {
   const all: Record<string, any>[] = []
@@ -145,7 +136,7 @@ async function fetchAllRestPages(base: string, limit: number): Promise<Record<st
   return all.slice(0, Number.isFinite(limit) ? limit : all.length)
 }
 
-export const decodeEntities = (input: string): string =>
+const decodeEntities = (input: string): string =>
   (input || '')
     .replace(/&amp;/g, '&')
     .replace(/&nbsp;/g, ' ')
@@ -158,7 +149,7 @@ export const decodeEntities = (input: string): string =>
     .replace(/&gt;/g, '>')
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
 
-export const stripTags = (html: string): string =>
+const stripTags = (html: string): string =>
   decodeEntities(
     (html || '')
       .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -168,10 +159,10 @@ export const stripTags = (html: string): string =>
     .replace(/\s+/g, ' ')
     .trim()
 
-export const clip = (text: string, max = 220): string =>
+const clip = (text: string, max = 220): string =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 
-export const deSlugify = (slug: string): string =>
+const deSlugify = (slug: string): string =>
   decodeURIComponent(slug)
     .split('-')
     .filter(Boolean)
@@ -179,7 +170,7 @@ export const deSlugify = (slug: string): string =>
     .join(' ')
 
 // Greek-language detection for imported posts (drives the html lang attr)
-export const detectLanguage = (text: string): 'en' | 'el' => {
+const detectLanguage = (text: string): 'en' | 'el' => {
   const greek = (text.match(/[Ͱ-Ͽ]/g) || []).length
   return greek > text.length * 0.25 ? 'el' : 'en'
 }
@@ -194,14 +185,14 @@ const sitemapLocs = async (url: string): Promise<string[]> => {
 }
 
 // WordPress size-suffixed files (photo-800x600.jpg) → original photo.jpg
-export const originalImageUrl = (url: string): string =>
+const originalImageUrl = (url: string): string =>
   url.split('?')[0].replace(/-\d{2,4}x\d{2,4}(?=\.(?:jpe?g|png|webp|gif)$)/i, '')
 
 // ------------------------------ HTML → lexical -----------------------------
 
-export type LexicalState = Record<string, any>
+type LexicalState = Record<string, any>
 
-export const emptyLexical = (): LexicalState => ({
+const emptyLexical = (): LexicalState => ({
   root: {
     type: 'root',
     format: '',
@@ -212,7 +203,7 @@ export const emptyLexical = (): LexicalState => ({
   },
 })
 
-export const paragraphNode = (text: string) => ({
+const paragraphNode = (text: string) => ({
   type: 'paragraph',
   version: 1,
   format: '',
@@ -223,7 +214,7 @@ export const paragraphNode = (text: string) => ({
   ],
 })
 
-export const uploadNode = (mediaId: number) => ({
+const uploadNode = (mediaId: number) => ({
   type: 'upload',
   version: 3,
   format: '',
@@ -232,7 +223,7 @@ export const uploadNode = (mediaId: number) => ({
   value: mediaId,
 })
 
-export const cleanWordPressHtml = (html: string): string =>
+const cleanWordPressHtml = (html: string): string =>
   (html || '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -275,7 +266,7 @@ const mimeFor = (name: string): string =>
         ? 'image/gif'
         : 'image/jpeg'
 
-export async function importImage(
+async function importImage(
   payload: Payload,
   url: string,
   alt: string,
@@ -419,7 +410,7 @@ const metaContent = (html: string, property: string): string | null => {
   return match ? decodeEntities(match[1]) : null
 }
 
-export function parseListingPage(html: string, pageUrl: string): ParsedListing | null {
+function parseListingPage(html: string, pageUrl: string): ParsedListing | null {
   const jsonLd = findJsonLdBlocks(html)
   const business = jsonLd.find(
     (block) => block['@type'] === 'LocalBusiness' || block['@type'] === 'Organization',
@@ -617,7 +608,7 @@ export function parseListingPage(html: string, pageUrl: string): ParsedListing |
 
 // ------------------------------ upsert helpers -----------------------------
 
-export async function upsertBySlug(
+async function upsertBySlug(
   payload: Payload,
   collection: 'categories' | 'areas' | 'listings' | 'posts',
   slug: string,
@@ -645,7 +636,7 @@ export async function upsertBySlug(
 
 // --------------------------------- steps -----------------------------------
 
-export const canonicalCategorySlug = (slug: string): string =>
+const canonicalCategorySlug = (slug: string): string =>
   site.legacy.categoryMerges[slug] ?? slug
 
 const canonicalRegionSlug = (slug: string): string | null => {
@@ -844,38 +835,6 @@ async function importListings(
   return { imported, skipped, harvested }
 }
 
-// Convert article HTML to Lexical, interleaving upload nodes where the
-// original had inline images so articles keep their pictures.
-export async function lexicalWithInlineImages(
-  payload: Payload,
-  htmlToLexical: HtmlToLexical,
-  contentHtml: string,
-  alt: string,
-  log: Log,
-): Promise<LexicalState> {
-  const imageUrls = [
-    ...new Set(
-      [...contentHtml.matchAll(/<img[^>]+src="([^"]+)"/gi)]
-        .map((match) => originalImageUrl(decodeEntities(match[1])))
-        .filter((src) => /wp-content\/uploads/.test(src)),
-    ),
-  ].slice(0, MAX_POST_INLINE_IMAGES)
-
-  const chunks = contentHtml.split(/<img[^>]*>/i)
-  const state = emptyLexical()
-  for (const [chunkIndex, chunk] of chunks.entries()) {
-    if (stripTags(chunk)) {
-      const part = htmlToLexical(chunk)
-      state.root.children.push(...part.root.children)
-    }
-    if (chunkIndex < chunks.length - 1 && chunkIndex < imageUrls.length) {
-      const mediaId = await importImage(payload, imageUrls[chunkIndex], alt, log)
-      if (mediaId) state.root.children.push(uploadNode(mediaId))
-    }
-  }
-  return state
-}
-
 async function importPosts(
   payload: Payload,
   htmlToLexical: HtmlToLexical,
@@ -907,7 +866,28 @@ async function importPosts(
         }
       }
 
-      const state = await lexicalWithInlineImages(payload, htmlToLexical, contentHtml, title, log)
+      // Inline images: convert the HTML around them, then interleave upload
+      // nodes so articles keep their pictures.
+      const imageUrls = [
+        ...new Set(
+          [...contentHtml.matchAll(/<img[^>]+src="([^"]+)"/gi)]
+            .map((match) => originalImageUrl(decodeEntities(match[1])))
+            .filter((src) => /wp-content\/uploads/.test(src)),
+        ),
+      ].slice(0, MAX_POST_INLINE_IMAGES)
+
+      const chunks = contentHtml.split(/<img[^>]*>/i)
+      const state = emptyLexical()
+      for (const [chunkIndex, chunk] of chunks.entries()) {
+        if (stripTags(chunk)) {
+          const part = htmlToLexical(chunk)
+          state.root.children.push(...part.root.children)
+        }
+        if (chunkIndex < chunks.length - 1 && chunkIndex < imageUrls.length) {
+          const mediaId = await importImage(payload, imageUrls[chunkIndex], title, log)
+          if (mediaId) state.root.children.push(uploadNode(mediaId))
+        }
+      }
       if (state.root.children.length === 0) state.root.children.push(paragraphNode(excerpt || title))
 
       await upsertBySlug(payload, 'posts', slug, {
