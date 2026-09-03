@@ -14,7 +14,7 @@ import { Listings } from './collections/Listings'
 import { Posts } from './collections/Posts'
 import { ContactSubmissions } from './collections/ContactSubmissions'
 import { SiteSettings } from './globals/SiteSettings'
-import { imageBlock } from './lib/lexicalBlocks'
+import { htmlBlock, imageBlock } from './lib/lexicalBlocks'
 import { site } from './site.config'
 
 const filename = fileURLToPath(import.meta.url)
@@ -50,7 +50,7 @@ export default buildConfig({
   editor: lexicalEditor({
     features: ({ defaultFeatures }) => [
       ...defaultFeatures,
-      BlocksFeature({ blocks: [imageBlock] }),
+      BlocksFeature({ blocks: [imageBlock, htmlBlock] }),
     ],
   }),
   collections: [Users, Media, Categories, Areas, Listings, Posts, ContactSubmissions],

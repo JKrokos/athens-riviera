@@ -47,8 +47,11 @@ export const fillPublishedAt: CollectionBeforeChangeHook = ({ data }) => {
 
 export const clearOnDuplicate: FieldHook = () => null
 
-export const suffixOnDuplicate: FieldHook = ({ value }) =>
-  typeof value === 'string' && value ? `${value}-copy` : value
+export const copyTitleOnDuplicate: FieldHook = ({ value }) =>
+  typeof value === 'string' && value ? `${value} (Copy)` : value
+
+// Empty slug → the slug hook regenerates it from the '(Copy)' title
+export const regenerateOnDuplicate: FieldHook = () => ''
 
 // ------------------------------ HTML source --------------------------------
 
@@ -66,17 +69,19 @@ export const applyHtmlSource: CollectionBeforeChangeHook = async ({ data, req })
 
 // -------------------------------- preview ----------------------------------
 
-// Null-safe preview URL: only when the document has a slug and a preview
-// secret exists. Goes through the Next.js draft-mode endpoint so the page is
-// rendered fresh instead of served from the static cache.
+// Null-safe preview URL: null until the document has a slug, so Payload
+// hides the button instead of linking to a 404. With a secret the link goes
+// through the Next.js draft-mode endpoint, which renders the page fresh and
+// shows unpublished listings; without one it points at the live URL.
 export const previewUrl = (
   doc: Record<string, unknown> | undefined,
   pathFor: (slug: string) => string,
 ): string | null => {
   const slug = doc && typeof doc.slug === 'string' ? doc.slug.trim() : ''
   if (!slug) return null
+  const base = (process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000').replace(/\/$/, '')
+  const path = pathFor(slug)
   const secret = process.env.PREVIEW_SECRET || process.env.REVALIDATE_SECRET
-  if (!secret) return null
-  const base = (process.env.NEXT_PUBLIC_SERVER_URL || '').replace(/\/$/, '')
-  return `${base}/api/preview?secret=${encodeURIComponent(secret)}&path=${encodeURIComponent(pathFor(slug))}`
+  if (!secret) return `${base}${path}`
+  return `${base}/api/preview?secret=${encodeURIComponent(secret)}&path=${encodeURIComponent(path)}`
 }

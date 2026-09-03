@@ -83,3 +83,32 @@ curl "https://<host>/api/import?secret=$IMPORT_SECRET"
 
 Payload hooks call `revalidatePath` after every change, refreshing the static
 pages immediately; pages also refresh hourly (ISR) as a safety net.
+
+## Editorial workflow
+
+- **Slugs** are generated from the title/name when empty, with Greek
+  transliterated to Latin (`Καλημέρα` → `kalimera`). Imported WordPress slugs
+  are kept as they were so old URLs keep working.
+- **Posts**: an empty excerpt is filled from the first paragraph; an empty
+  published date is set on save (an empty date would sort as "newest"
+  forever). Duplicating a post gives the copy a "(Copy)" title, a fresh slug
+  and a fresh date. The *HTML source* box under the content converts pasted
+  HTML into the editor content on save.
+- **Preview**: the admin Preview button opens the page through `/api/preview`
+  (Next.js draft mode) when `PREVIEW_SECRET` (or `REVALIDATE_SECRET`) is set,
+  so the latest saved content — including unpublished listings — can be
+  reviewed. Leave draft mode via `/api/preview?exit=1&path=/`.
+- **Rich text blocks**: the editor offers an *Image* block (left / center /
+  right alignment, three widths, caption — previewed in place in the admin)
+  and an *HTML source* block for embeds. Classic inline uploads from imported
+  content keep rendering.
+
+## Media
+
+Uploads are capped at 2560px on the longest side and EXIF orientation is
+baked in, so editors don't need to resize or rotate photos first. Three
+responsive sizes are generated as WebP: `thumb` (480w), `card` (960w) and
+`hero` (1920w), none enlarged beyond the original. Logos should be PNG with
+transparency. Media lives in the site's S3 bucket (`S3_*` variables) — the
+deploy log prints `[storage] media in S3 bucket …` at boot; a warning there
+means uploads are going to the container disk and will be lost on redeploy.

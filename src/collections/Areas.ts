@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
+import { previewUrl } from '../lib/postHooks'
 import { formatSlugHook } from '../lib/slug'
 import { revalidateSite } from '../lib/revalidate'
 
@@ -10,6 +11,7 @@ export const Areas: CollectionConfig = {
     useAsTitle: 'name',
     defaultColumns: ['name', 'slug', 'featured'],
     group: 'Content',
+    preview: (doc) => previewUrl(doc, (slug) => `/region/${slug}`),
   },
   access: {
     read: () => true,

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { draftMode } from 'next/headers'
 import { notFound } from 'next/navigation'
 
 import { Breadcrumbs } from '../../../../components/Breadcrumbs'
@@ -34,7 +35,9 @@ export async function generateMetadata({
   params: Promise<Params>
 }): Promise<Metadata> {
   const { slug } = await params
-  const listing = await getListingBySlug(decodeURIComponent(slug))
+  const listing = await getListingBySlug(decodeURIComponent(slug), {
+    includeUnpublished: (await draftMode()).isEnabled,
+  })
   if (!listing) return {}
   const category =
     typeof listing.primaryCategory === 'object' ? listing.primaryCategory : undefined
@@ -50,7 +53,9 @@ export async function generateMetadata({
 
 export default async function ListingPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params
-  const listing = await getListingBySlug(decodeURIComponent(slug))
+  const listing = await getListingBySlug(decodeURIComponent(slug), {
+    includeUnpublished: (await draftMode()).isEnabled,
+  })
   if (!listing) notFound()
 
   const related = await getRelatedListings(listing)

@@ -111,12 +111,17 @@ export const getListings = async (options: {
     return docs
   })
 
-export const getListingBySlug = async (slug: string): Promise<Listing | undefined> =>
+export const getListingBySlug = async (
+  slug: string,
+  { includeUnpublished = false }: { includeUnpublished?: boolean } = {},
+): Promise<Listing | undefined> =>
   safe(undefined, async () => {
     const payload = await getPayloadClient()
     const { docs } = await payload.find({
       collection: 'listings',
-      where: { and: [{ slug: { equals: slug } }, publishedWhere] },
+      where: includeUnpublished
+        ? { slug: { equals: slug } }
+        : { and: [{ slug: { equals: slug } }, publishedWhere] },
       limit: 1,
       depth: 1,
     })

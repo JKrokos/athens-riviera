@@ -3,10 +3,11 @@ import type { CollectionConfig } from 'payload'
 import {
   applyHtmlSource,
   clearOnDuplicate,
+  copyTitleOnDuplicate,
   fillExcerpt,
   fillPublishedAt,
   previewUrl,
-  suffixOnDuplicate,
+  regenerateOnDuplicate,
 } from '../lib/postHooks'
 import { formatSlugHook } from '../lib/slug'
 import { revalidateSite } from '../lib/revalidate'
@@ -32,7 +33,12 @@ export const Posts: CollectionConfig = {
     afterDelete: [() => revalidateSite()],
   },
   fields: [
-    { name: 'title', type: 'text', required: true },
+    {
+      name: 'title',
+      type: 'text',
+      required: true,
+      hooks: { beforeDuplicate: [copyTitleOnDuplicate] },
+    },
     {
       name: 'slug',
       type: 'text',
@@ -44,7 +50,8 @@ export const Posts: CollectionConfig = {
       },
       hooks: {
         beforeValidate: [formatSlugHook('title')],
-        beforeDuplicate: [suffixOnDuplicate],
+        // Regenerated from the new '(Copy)' title so the copy gets its own slug
+        beforeDuplicate: [regenerateOnDuplicate],
       },
     },
     {

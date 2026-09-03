@@ -4,26 +4,30 @@ import type { DefaultNodeTypes, SerializedBlockNode } from '@payloadcms/richtext
 import type { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
 
 import { asMedia, mediaAlt, mediaUrl } from '../lib/media'
-import type { ImageBlock } from '../payload-types'
+import type { HtmlBlock, ImageBlock } from '../payload-types'
 
-const ALIGN_CLASSES: Record<string, string> = {
-  left: 'float-left clear-left mb-4 mr-6 w-full sm:w-1/2 lg:w-[45%]',
-  right: 'float-right clear-right mb-4 ml-6 w-full sm:w-1/2 lg:w-[45%]',
-  center: 'clear-both mx-auto my-8 w-full max-w-3xl',
+// Floats are only meaningful below full width; full width always centres
+const layoutClass = (align: string, size: string): string => {
+  if (size === 'full') return 'clear-both my-8 w-full'
+  const width = size === 'small' ? 'w-full sm:w-1/3' : 'w-full sm:w-1/2'
+  if (align === 'left') return `float-left clear-left mb-4 mr-6 ${width}`
+  if (align === 'right') return `float-right clear-right mb-4 ml-6 ${width}`
+  return `clear-both mx-auto my-8 ${width}`
 }
 
-function AlignedImage({ image, align, caption }: ImageBlock) {
+function AlignedImage({ image, align, size, caption }: ImageBlock) {
   const media = asMedia(image)
   const url = mediaUrl(media, 'card')
   if (!media || !url) return null
+  const sizeValue = size ?? 'medium'
   return (
-    <figure className={`not-prose ${ALIGN_CLASSES[align ?? 'center'] ?? ALIGN_CLASSES.center}`}>
+    <figure className={`not-prose ${layoutClass(align ?? 'center', sizeValue)}`}>
       <Image
         src={url}
         alt={mediaAlt(media, caption ?? '')}
         width={media.sizes?.card?.width ?? media.width ?? 960}
         height={media.sizes?.card?.height ?? media.height ?? 640}
-        sizes="(max-width: 640px) 100vw, 720px"
+        sizes={sizeValue === 'full' ? '100vw' : sizeValue === 'small' ? '33vw' : '50vw'}
         className="h-auto w-full rounded-card"
       />
       {caption ? (
@@ -33,12 +37,18 @@ function AlignedImage({ image, align, caption }: ImageBlock) {
   )
 }
 
-const converters: JSXConvertersFunction<DefaultNodeTypes | SerializedBlockNode<ImageBlock>> = ({
-  defaultConverters,
-}) => ({
+// The default converters stay in place, so classic upload nodes in imported
+// content keep rendering unchanged.
+const converters: JSXConvertersFunction<
+  DefaultNodeTypes | SerializedBlockNode<ImageBlock> | SerializedBlockNode<HtmlBlock>
+> = ({ defaultConverters }) => ({
   ...defaultConverters,
   blocks: {
-    imageBlock: ({ node }) => <AlignedImage {...node.fields} />,
+    imageBlock: ({ node }) => <AlignedImage {...(node.fields as ImageBlock)} />,
+    htmlBlock: ({ node }) => {
+      const html = (node.fields as HtmlBlock).html
+      return html ? <div className="rt-html" dangerouslySetInnerHTML={{ __html: html }} /> : null
+    },
   },
 })
 

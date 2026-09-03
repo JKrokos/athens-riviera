@@ -872,10 +872,27 @@ export interface CollectionsWidget {
 export interface ImageBlock {
   image: number | Media;
   align: 'left' | 'center' | 'right';
+  /**
+   * Full width ignores left/right alignment
+   */
+  size?: ('small' | 'medium' | 'full') | null;
   caption?: string | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'imageBlock';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HtmlBlock".
+ */
+export interface HtmlBlock {
+  /**
+   * Rendered exactly as written — only paste HTML you trust.
+   */
+  html: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'htmlBlock';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
