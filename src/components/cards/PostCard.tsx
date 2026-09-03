@@ -13,7 +13,11 @@ export function PostCard({ post, large }: { post: Post; large?: boolean }) {
       className="card group relative flex h-full flex-col"
       lang={post.language === 'el' ? 'el' : undefined}
     >
-      <div className={`relative overflow-hidden bg-accent-soft ${large ? 'aspect-[16/9]' : 'aspect-[16/10]'}`}>
+      <div
+        className={`relative overflow-hidden bg-accent-soft ${
+          large ? 'min-h-[18rem] flex-1 sm:min-h-[22rem]' : 'aspect-[16/10]'
+        }`}
+      >
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -26,7 +30,7 @@ export function PostCard({ post, large }: { post: Post; large?: boolean }) {
           <div className="absolute inset-0 bg-gradient-to-br from-accent-soft to-accent/30" />
         )}
       </div>
-      <div className="flex flex-1 flex-col p-5">
+      <div className={`flex flex-col p-5 ${large ? '' : 'flex-1'}`}>
         {post.publishedAt ? (
           <time dateTime={post.publishedAt} className="text-xs font-medium uppercase tracking-wide text-muted">
             {formatDate(post.publishedAt)}
@@ -43,7 +47,7 @@ export function PostCard({ post, large }: { post: Post; large?: boolean }) {
           </Link>
         </h3>
         {post.excerpt ? (
-          <p className={`mt-2 text-sm text-ink-soft ${large ? 'line-clamp-3' : 'line-clamp-2'}`}>
+          <p className={`mt-2 text-sm text-ink-soft ${large ? 'line-clamp-4 sm:text-base' : 'line-clamp-2'}`}>
             {post.excerpt}
           </p>
         ) : null}

@@ -111,66 +111,58 @@ export default buildConfig({
       }
     }
 
-    // First-boot content migration: when IMPORT_ON_BOOT is set and the
-    // database has no listings yet, pull everything from the old WordPress
-    // site in the background. Progress goes to the deploy logs; the
-    // /api/import endpoint can also trigger/monitor the same job.
-    const importFlag = process.env.IMPORT_ON_BOOT
-    if (importFlag === 'true' || importFlag === 'force') {
-      const listings = await payload.count({ collection: 'listings' })
-      if (listings.totalDocs === 0 || importFlag === 'force') {
-        payload.logger.info('IMPORT_ON_BOOT: scheduling WordPress migration')
-        setTimeout(async () => {
-          try {
-            const { runWordPressImport } = await import('./lib/importer')
-            const summary = await runWordPressImport(payload, (message) =>
-              payload.logger.info(`[wp-import] ${message}`),
-            )
-            payload.logger.info(`[wp-import] finished: ${JSON.stringify(summary)}`)
-          } catch (error) {
-            payload.logger.error(
-              `[wp-import] failed: ${error instanceof Error ? error.message : error}`,
-            )
-          }
-        }, 20_000)
+    // Content jobs that run once after boot, selected with IMPORT_ON_BOOT
+    // (comma-separated, run in order):
+    //   true | force        full WordPress migration (force: even with content)
+    //   media-refetch       re-download media binaries from their source URLs
+    //   taxonomy-images     fill missing category/area covers from listings
+    //   taxonomy-images-refresh  re-pick every cover and the homepage hero
+    // Progress goes to the deploy logs; /api/import can also trigger a job.
+    const modes = (process.env.IMPORT_ON_BOOT || '')
+      .split(',')
+      .map((mode) => mode.trim())
+      .filter((mode) => mode && mode !== 'false')
+    if (modes.length === 0) return
+
+    const log = (message: string) => payload.logger.info(`[import] ${message}`)
+    const runMode = async (mode: string): Promise<void> => {
+      const importer = await import('./lib/importer')
+      if (mode === 'true' || mode === 'force') {
+        const listings = await payload.count({ collection: 'listings' })
+        if (listings.totalDocs > 0 && mode !== 'force') {
+          log(`full import skipped: ${listings.totalDocs} listings exist`)
+          return
+        }
+        const summary = await importer.runWordPressImport(payload, log)
+        log(`full import finished: ${JSON.stringify(summary)}`)
+      } else if (mode === 'media-refetch') {
+        if (!s3Enabled) {
+          payload.logger.error('media-refetch ignored: S3 storage is not configured')
+          return
+        }
+        await importer.refetchMedia(payload, log)
+      } else if (mode === 'taxonomy-images' || mode === 'taxonomy-images-refresh') {
+        const refresh = mode === 'taxonomy-images-refresh'
+        await importer.assignTaxonomyImages(payload, log, { refresh })
+        if (refresh) await importer.refreshHomepageHero(payload, log)
       } else {
-        payload.logger.info(
-          `IMPORT_ON_BOOT set but ${listings.totalDocs} listings exist — skipping`,
-        )
+        payload.logger.error(`unknown IMPORT_ON_BOOT mode "${mode}"`)
       }
-    } else if (importFlag === 'media-refetch') {
-      // Recover lost media binaries from the original WordPress URLs.
-      // Pointless without durable storage — the files would be lost again.
-      if (!s3Enabled) {
-        payload.logger.error('IMPORT_ON_BOOT=media-refetch ignored: S3 storage is not configured')
-      } else {
-        payload.logger.info('IMPORT_ON_BOOT=media-refetch: scheduling media recovery')
-        setTimeout(async () => {
-          try {
-            const { refetchMedia } = await import('./lib/importer')
-            await refetchMedia(payload, (message) => payload.logger.info(`[wp-import] ${message}`))
-          } catch (error) {
-            payload.logger.error(
-              `[wp-import] media refetch failed: ${error instanceof Error ? error.message : error}`,
-            )
-          }
-        }, 20_000)
-      }
-    } else if (importFlag === 'taxonomy-images') {
-      // Content is already imported — only fill in category/area cover images
-      payload.logger.info('IMPORT_ON_BOOT=taxonomy-images: scheduling cover assignment')
-      setTimeout(async () => {
+    }
+
+    payload.logger.info(`IMPORT_ON_BOOT: scheduling ${modes.join(', ')}`)
+    setTimeout(async () => {
+      for (const mode of modes) {
         try {
-          const { assignTaxonomyImages } = await import('./lib/importer')
-          await assignTaxonomyImages(payload, (message) =>
-            payload.logger.info(`[wp-import] ${message}`),
-          )
+          log(`— ${mode} —`)
+          await runMode(mode)
         } catch (error) {
           payload.logger.error(
-            `[wp-import] taxonomy images failed: ${error instanceof Error ? error.message : error}`,
+            `[import] ${mode} failed: ${error instanceof Error ? error.message : error}`,
           )
         }
-      }, 20_000)
-    }
+      }
+      log('all boot jobs finished')
+    }, 20_000)
   },
 })

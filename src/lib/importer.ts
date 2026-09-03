@@ -24,7 +24,7 @@ const POST_LIMIT = Number(process.env.IMPORT_POST_LIMIT || 0) || Infinity
 const MAX_IMAGES = Number(process.env.IMPORT_MAX_IMAGES_PER_LISTING || 12)
 const MAX_POST_INLINE_IMAGES = 6
 
-type Log = (message: string) => void
+export type Log = (message: string) => void
 
 export type ImportSummary = {
   categories: number
@@ -101,6 +101,10 @@ async function fetchRaw(url: string, asBuffer: boolean, tries = 6): Promise<stri
         // Gone for good (dead media on the old site) — retrying won't help
         throw Object.assign(new Error(`HTTP ${response.status}`), { permanent: true })
       }
+      if (response.status === 403 || response.status === 429) {
+        // Rate limited by the source's firewall — give it a real breather
+        throw Object.assign(new Error(`HTTP ${response.status}`), { cooldown: true })
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       if (asBuffer) return Buffer.from(await response.arrayBuffer())
       const text = await response.text()
@@ -109,16 +113,24 @@ async function fetchRaw(url: string, asBuffer: boolean, tries = 6): Promise<stri
       if (text.includes(CHALLENGE_MARKER)) throw new Error('bot challenge page')
       return text
     } catch (error) {
-      if ((error as { permanent?: boolean }).permanent || attempt === tries) throw error
-      await sleep(1500 * attempt + Math.floor(Math.random() * 500))
+      const flags = error as { permanent?: boolean; cooldown?: boolean }
+      if (flags.permanent || attempt === tries) throw error
+      if (flags.cooldown) {
+        console.warn(`[import] ${url} → ${(error as Error).message}; cooling down ${20 * attempt}s`)
+      }
+      await sleep(
+        flags.cooldown
+          ? 20_000 * attempt
+          : 1500 * attempt + Math.floor(Math.random() * 500),
+      )
     }
   }
   throw new Error('unreachable')
 }
 
-const fetchText = (url: string): Promise<string> => fetchRaw(url, false) as Promise<string>
+export const fetchText = (url: string): Promise<string> => fetchRaw(url, false) as Promise<string>
 const fetchBuffer = (url: string): Promise<Buffer> => fetchRaw(url, true) as Promise<Buffer>
-const fetchJson = async (url: string): Promise<unknown> => JSON.parse(await fetchText(url))
+export const fetchJson = async (url: string): Promise<unknown> => JSON.parse(await fetchText(url))
 
 async function fetchAllRestPages(base: string, limit: number): Promise<Record<string, any>[]> {
   const all: Record<string, any>[] = []
@@ -136,7 +148,7 @@ async function fetchAllRestPages(base: string, limit: number): Promise<Record<st
   return all.slice(0, Number.isFinite(limit) ? limit : all.length)
 }
 
-const decodeEntities = (input: string): string =>
+export const decodeEntities = (input: string): string =>
   (input || '')
     .replace(/&amp;/g, '&')
     .replace(/&nbsp;/g, ' ')
@@ -149,7 +161,7 @@ const decodeEntities = (input: string): string =>
     .replace(/&gt;/g, '>')
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
 
-const stripTags = (html: string): string =>
+export const stripTags = (html: string): string =>
   decodeEntities(
     (html || '')
       .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -159,10 +171,10 @@ const stripTags = (html: string): string =>
     .replace(/\s+/g, ' ')
     .trim()
 
-const clip = (text: string, max = 220): string =>
+export const clip = (text: string, max = 220): string =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 
-const deSlugify = (slug: string): string =>
+export const deSlugify = (slug: string): string =>
   decodeURIComponent(slug)
     .split('-')
     .filter(Boolean)
@@ -170,7 +182,7 @@ const deSlugify = (slug: string): string =>
     .join(' ')
 
 // Greek-language detection for imported posts (drives the html lang attr)
-const detectLanguage = (text: string): 'en' | 'el' => {
+export const detectLanguage = (text: string): 'en' | 'el' => {
   const greek = (text.match(/[Ͱ-Ͽ]/g) || []).length
   return greek > text.length * 0.25 ? 'el' : 'en'
 }
@@ -185,14 +197,14 @@ const sitemapLocs = async (url: string): Promise<string[]> => {
 }
 
 // WordPress size-suffixed files (photo-800x600.jpg) → original photo.jpg
-const originalImageUrl = (url: string): string =>
+export const originalImageUrl = (url: string): string =>
   url.split('?')[0].replace(/-\d{2,4}x\d{2,4}(?=\.(?:jpe?g|png|webp|gif)$)/i, '')
 
 // ------------------------------ HTML → lexical -----------------------------
 
-type LexicalState = Record<string, any>
+export type LexicalState = Record<string, any>
 
-const emptyLexical = (): LexicalState => ({
+export const emptyLexical = (): LexicalState => ({
   root: {
     type: 'root',
     format: '',
@@ -203,7 +215,7 @@ const emptyLexical = (): LexicalState => ({
   },
 })
 
-const paragraphNode = (text: string) => ({
+export const paragraphNode = (text: string) => ({
   type: 'paragraph',
   version: 1,
   format: '',
@@ -214,7 +226,7 @@ const paragraphNode = (text: string) => ({
   ],
 })
 
-const uploadNode = (mediaId: number) => ({
+export const uploadNode = (mediaId: number) => ({
   type: 'upload',
   version: 3,
   format: '',
@@ -223,7 +235,7 @@ const uploadNode = (mediaId: number) => ({
   value: mediaId,
 })
 
-const cleanWordPressHtml = (html: string): string =>
+export const cleanWordPressHtml = (html: string): string =>
   (html || '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -266,7 +278,7 @@ const mimeFor = (name: string): string =>
         ? 'image/gif'
         : 'image/jpeg'
 
-async function importImage(
+export async function importImage(
   payload: Payload,
   url: string,
   alt: string,
@@ -410,7 +422,7 @@ const metaContent = (html: string, property: string): string | null => {
   return match ? decodeEntities(match[1]) : null
 }
 
-function parseListingPage(html: string, pageUrl: string): ParsedListing | null {
+export function parseListingPage(html: string, pageUrl: string): ParsedListing | null {
   const jsonLd = findJsonLdBlocks(html)
   const business = jsonLd.find(
     (block) => block['@type'] === 'LocalBusiness' || block['@type'] === 'Organization',
@@ -608,7 +620,7 @@ function parseListingPage(html: string, pageUrl: string): ParsedListing | null {
 
 // ------------------------------ upsert helpers -----------------------------
 
-async function upsertBySlug(
+export async function upsertBySlug(
   payload: Payload,
   collection: 'categories' | 'areas' | 'listings' | 'posts',
   slug: string,
@@ -636,7 +648,7 @@ async function upsertBySlug(
 
 // --------------------------------- steps -----------------------------------
 
-const canonicalCategorySlug = (slug: string): string =>
+export const canonicalCategorySlug = (slug: string): string =>
   site.legacy.categoryMerges[slug] ?? slug
 
 const canonicalRegionSlug = (slug: string): string | null => {
@@ -835,6 +847,38 @@ async function importListings(
   return { imported, skipped, harvested }
 }
 
+// Convert article HTML to Lexical, interleaving upload nodes where the
+// original had inline images so articles keep their pictures.
+export async function lexicalWithInlineImages(
+  payload: Payload,
+  htmlToLexical: HtmlToLexical,
+  contentHtml: string,
+  alt: string,
+  log: Log,
+): Promise<LexicalState> {
+  const imageUrls = [
+    ...new Set(
+      [...contentHtml.matchAll(/<img[^>]+src="([^"]+)"/gi)]
+        .map((match) => originalImageUrl(decodeEntities(match[1])))
+        .filter((src) => /wp-content\/uploads/.test(src)),
+    ),
+  ].slice(0, MAX_POST_INLINE_IMAGES)
+
+  const chunks = contentHtml.split(/<img[^>]*>/i)
+  const state = emptyLexical()
+  for (const [chunkIndex, chunk] of chunks.entries()) {
+    if (stripTags(chunk)) {
+      const part = htmlToLexical(chunk)
+      state.root.children.push(...part.root.children)
+    }
+    if (chunkIndex < chunks.length - 1 && chunkIndex < imageUrls.length) {
+      const mediaId = await importImage(payload, imageUrls[chunkIndex], alt, log)
+      if (mediaId) state.root.children.push(uploadNode(mediaId))
+    }
+  }
+  return state
+}
+
 async function importPosts(
   payload: Payload,
   htmlToLexical: HtmlToLexical,
@@ -866,28 +910,7 @@ async function importPosts(
         }
       }
 
-      // Inline images: convert the HTML around them, then interleave upload
-      // nodes so articles keep their pictures.
-      const imageUrls = [
-        ...new Set(
-          [...contentHtml.matchAll(/<img[^>]+src="([^"]+)"/gi)]
-            .map((match) => originalImageUrl(decodeEntities(match[1])))
-            .filter((src) => /wp-content\/uploads/.test(src)),
-        ),
-      ].slice(0, MAX_POST_INLINE_IMAGES)
-
-      const chunks = contentHtml.split(/<img[^>]*>/i)
-      const state = emptyLexical()
-      for (const [chunkIndex, chunk] of chunks.entries()) {
-        if (stripTags(chunk)) {
-          const part = htmlToLexical(chunk)
-          state.root.children.push(...part.root.children)
-        }
-        if (chunkIndex < chunks.length - 1 && chunkIndex < imageUrls.length) {
-          const mediaId = await importImage(payload, imageUrls[chunkIndex], title, log)
-          if (mediaId) state.root.children.push(uploadNode(mediaId))
-        }
-      }
+      const state = await lexicalWithInlineImages(payload, htmlToLexical, contentHtml, title, log)
       if (state.root.children.length === 0) state.root.children.push(paragraphNode(excerpt || title))
 
       await upsertBySlug(payload, 'posts', slug, {
@@ -1099,13 +1122,26 @@ async function finalize(
 
 // ------------------------- taxonomy cover images ---------------------------
 
+// Photos that work as a wide cover: large enough and roughly landscape.
+// Logos and portrait shots score low so they are only ever a last resort.
+const coverScore = (media: { width?: number | null; height?: number | null }): number => {
+  const width = media.width ?? 0
+  const height = media.height ?? 0
+  if (width < 700 || height < 400) return -1
+  const ratio = width / height
+  const aspect = ratio >= 1.2 && ratio <= 2.4 ? 1 : ratio > 0.85 ? 0.5 : 0.15
+  return Math.min(width, 2600) * aspect
+}
+
 // The old WordPress sites never set term images, so category and area covers
-// come from their own content: each term without an image gets the lead
-// gallery photo of its strongest listing (featured first, then largest
-// gallery), no photo serving two terms. Manual choices in the CMS are kept.
+// come from their own content: each term without an image gets the best
+// gallery photo of its strongest listings (featured first, then largest
+// gallery), no photo serving two terms. Manual choices in the CMS are kept
+// unless `refresh` is set, which re-picks every cover.
 export async function assignTaxonomyImages(
   payload: Payload,
   log: Log,
+  { refresh = false }: { refresh?: boolean } = {},
 ): Promise<{ categories: number; areas: number }> {
   const { docs: listings } = await payload.find({
     collection: 'listings',
@@ -1120,6 +1156,27 @@ export async function assignTaxonomyImages(
       : value && typeof value === 'object' && 'id' in value
         ? ((value as { id: number }).id ?? null)
         : null
+
+  // Dimensions of every gallery photo, fetched in bulk
+  const galleryIds = [
+    ...new Set(
+      listings.flatMap((listing) =>
+        (listing.gallery ?? []).map(asId).filter((id): id is number => id !== null),
+      ),
+    ),
+  ]
+  const dimensions = new Map<number, { width?: number | null; height?: number | null }>()
+  for (let offset = 0; offset < galleryIds.length; offset += 200) {
+    const chunk = galleryIds.slice(offset, offset + 200)
+    const { docs } = await payload.find({
+      collection: 'media',
+      where: { id: { in: chunk } },
+      limit: chunk.length,
+      depth: 0,
+      select: { width: true, height: true },
+    })
+    for (const media of docs) dimensions.set(media.id, media)
+  }
 
   const ranked = [...listings].sort((a, b) => {
     const rank = (l: (typeof listings)[number]) =>
@@ -1144,17 +1201,22 @@ export async function assignTaxonomyImages(
   }
 
   const usedMedia = new Set<number>()
+  // Best unused photo across the term's top listings (strongest listings
+  // first, but a good landscape photo beats a logo from a stronger one)
   const pickImage = (candidates: typeof ranked | undefined): number | null => {
-    for (const listing of candidates ?? []) {
+    let best: { id: number; score: number } | null = null
+    for (const [index, listing] of (candidates ?? []).slice(0, 12).entries()) {
       for (const item of listing.gallery ?? []) {
         const mediaId = asId(item)
-        if (mediaId !== null && !usedMedia.has(mediaId)) {
-          usedMedia.add(mediaId)
-          return mediaId
-        }
+        if (mediaId === null || usedMedia.has(mediaId)) continue
+        const score = coverScore(dimensions.get(mediaId) ?? {})
+        if (score < 0) continue
+        const weighted = score * (1 - index * 0.04)
+        if (!best || weighted > best.score) best = { id: mediaId, score: weighted }
       }
     }
-    return null
+    if (best) usedMedia.add(best.id)
+    return best?.id ?? null
   }
 
   let categoriesSet = 0
@@ -1166,12 +1228,18 @@ export async function assignTaxonomyImages(
   })
   for (const category of categories) {
     const current = asId(category.image)
-    if (current !== null) {
+    if (current !== null && !refresh) {
       usedMedia.add(current)
       continue
     }
     const mediaId = pickImage(byCategory.get(category.id))
-    if (mediaId === null) continue
+    if (mediaId === null && refresh && current !== null && coverScore(await mediaDims(payload, current)) < 0) {
+      // Only logos available — the styled placeholder looks better than a stretched logo
+      await payload.update({ collection: 'categories', id: category.id, data: { image: null } })
+      log(`  – category image cleared (only logos available): ${category.slug}`)
+      continue
+    }
+    if (mediaId === null || mediaId === current) continue
     await payload.update({
       collection: 'categories',
       id: category.id,
@@ -1190,12 +1258,17 @@ export async function assignTaxonomyImages(
   })
   for (const area of areas) {
     const current = asId(area.image)
-    if (current !== null) {
+    if (current !== null && !refresh) {
+      usedMedia.add(current)
+      continue
+    }
+    // Areas whose cover was imported from a dedicated guide keep it
+    if (refresh && current !== null && coverScore(dimensions.get(current) ?? (await mediaDims(payload, current))) > 0) {
       usedMedia.add(current)
       continue
     }
     const mediaId = pickImage(byArea.get(area.id))
-    if (mediaId === null) continue
+    if (mediaId === null || mediaId === current) continue
     await payload.update({ collection: 'areas', id: area.id, data: { image: mediaId } })
     areasSet += 1
     log(`  ✓ area image: ${area.slug}`)
@@ -1203,6 +1276,48 @@ export async function assignTaxonomyImages(
 
   log(`taxonomy images assigned: ${categoriesSet} categories, ${areasSet} areas`)
   return { categories: categoriesSet, areas: areasSet }
+}
+
+const mediaDims = async (
+  payload: Payload,
+  id: number,
+): Promise<{ width?: number | null; height?: number | null }> => {
+  try {
+    const media = await payload.findByID({ collection: 'media', id, depth: 0 })
+    return { width: media.width, height: media.height }
+  } catch {
+    return {}
+  }
+}
+
+// The homepage hero came from the old site's og:image, which was a small
+// Elementor thumbnail. Replace it with the largest landscape photo in the
+// library when the current one is too small; a cover uploaded in Site
+// Settings above that size is left alone.
+export async function refreshHomepageHero(payload: Payload, log: Log): Promise<void> {
+  const settings = await payload.findGlobal({ slug: 'site-settings', depth: 1 })
+  const current =
+    settings.heroImage && typeof settings.heroImage === 'object' ? settings.heroImage : null
+  if (current && (current.width ?? 0) >= 1400) {
+    log(`homepage hero is already ${current.width}px wide — kept`)
+    return
+  }
+  const { docs } = await payload.find({
+    collection: 'media',
+    where: { width: { greater_than_equal: 1600 } },
+    sort: '-width',
+    limit: 100,
+    depth: 0,
+  })
+  const best = docs
+    .filter((media) => coverScore(media) > 0 && (media.width ?? 0) / (media.height ?? 1) >= 1.3)
+    .sort((a, b) => coverScore(b) - coverScore(a))[0]
+  if (!best) {
+    log('homepage hero: no large landscape photo in the library — upload one in Site Settings')
+    return
+  }
+  await payload.updateGlobal({ slug: 'site-settings', data: { heroImage: best.id } })
+  log(`homepage hero → ${best.filename} (${best.width}×${best.height})`)
 }
 
 export const startBackgroundTaxonomyImages = (payload: Payload): boolean => {
