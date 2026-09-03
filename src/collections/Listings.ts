@@ -1,7 +1,9 @@
 import type { CollectionConfig } from 'payload'
 
+import { previewUrl } from '../lib/postHooks'
 import { formatSlugHook } from '../lib/slug'
 import { revalidateSite } from '../lib/revalidate'
+import { validateOptionalUrl } from '../lib/validate'
 
 export const Listings: CollectionConfig = {
   slug: 'listings',
@@ -9,6 +11,7 @@ export const Listings: CollectionConfig = {
     useAsTitle: 'name',
     defaultColumns: ['name', 'primaryCategory', 'area', 'featured', 'published'],
     group: 'Content',
+    preview: (doc) => previewUrl(doc, (slug) => `/listing/${slug}`),
   },
   access: {
     read: () => true,
@@ -74,8 +77,8 @@ export const Listings: CollectionConfig = {
         {
           type: 'row',
           fields: [
-            { name: 'website', type: 'text' },
-            { name: 'bookingLink', type: 'text', label: 'Booking link' },
+            { name: 'website', type: 'text', validate: validateOptionalUrl },
+            { name: 'bookingLink', type: 'text', label: 'Booking link', validate: validateOptionalUrl },
           ],
         },
       ],
@@ -87,16 +90,16 @@ export const Listings: CollectionConfig = {
         {
           type: 'row',
           fields: [
-            { name: 'facebook', type: 'text' },
-            { name: 'instagram', type: 'text' },
+            { name: 'facebook', type: 'text', validate: validateOptionalUrl },
+            { name: 'instagram', type: 'text', validate: validateOptionalUrl },
           ],
         },
         {
           type: 'row',
           fields: [
-            { name: 'youtube', type: 'text' },
-            { name: 'linkedin', type: 'text' },
-            { name: 'tiktok', type: 'text' },
+            { name: 'youtube', type: 'text', validate: validateOptionalUrl },
+            { name: 'linkedin', type: 'text', validate: validateOptionalUrl },
+            { name: 'tiktok', type: 'text', validate: validateOptionalUrl },
           ],
         },
       ],

@@ -1,1 +1,8 @@
 // Admin panel style overrides
+
+// Payload forces a 450px min-height on portrait uploads in the rich text
+// editor, which stretches small images and icons; keep only the max-height
+.LexicalEditorTheme__upload__contents--portrait img,
+.LexicalEditorTheme__upload__contents--portrait svg {
+  min-height: 0;
+}

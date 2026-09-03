@@ -1,15 +1,10 @@
+import baseSlugify from '@sindresorhus/slugify'
 import type { FieldHook } from 'payload'
 
-// Latin-only slugs for generated values. Imported WordPress slugs (which may
-// contain Greek characters) are kept verbatim so legacy URLs keep working.
-export const slugify = (value: string): string =>
-  value
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^\p{L}\p{N}]+/gu, '-')
-    .replace(/^-+|-+$/g, '')
+// Latin-only slugs for generated values — Greek is transliterated
+// (Καλημέρα → kalimera). Imported WordPress slugs (which may contain Greek
+// characters) are kept verbatim so legacy URLs keep working.
+export const slugify = (value: string): string => baseSlugify(value, { decamelize: false })
 
 export const formatSlugHook =
   (fallbackField: string): FieldHook =>

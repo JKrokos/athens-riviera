@@ -39,7 +39,19 @@ export const Areas: CollectionConfig = {
       type: 'textarea',
       admin: { description: 'Shown on the area page and used as its meta description.' },
     },
-    { name: 'image', type: 'upload', relationTo: 'media' },
+    {
+      name: 'image',
+      type: 'upload',
+      relationTo: 'media',
+      admin: { description: 'Cover image for the area card and page header.' },
+    },
+    {
+      name: 'gallery',
+      type: 'upload',
+      relationTo: 'media',
+      hasMany: true,
+      admin: { description: 'Photo gallery shown on the area page.' },
+    },
     {
       type: 'row',
       fields: [

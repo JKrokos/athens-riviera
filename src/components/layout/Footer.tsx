@@ -129,7 +129,7 @@ export async function Footer() {
 
       {partnerLogos.length > 0 ? (
         <div className="border-t border-white/10">
-          <div className="container-site flex flex-wrap items-center justify-center gap-8 py-6">
+          <div className="partner-grid container-site flex flex-wrap items-center justify-center gap-8 py-6">
             {partnerLogos.map((partner) => {
               const logoUrl = mediaUrl(partner.logo, 'thumb')
               if (!logoUrl) return null
@@ -139,7 +139,7 @@ export async function Footer() {
                   alt={partner.name}
                   width={110}
                   height={40}
-                  className="h-9 w-auto opacity-70 transition-opacity hover:opacity-100"
+                  className="partner-logo h-auto max-h-12 w-auto object-contain opacity-100"
                 />
               )
               return partner.url ? (

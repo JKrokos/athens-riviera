@@ -1,5 +1,13 @@
 import type { CollectionConfig } from 'payload'
 
+import {
+  applyHtmlSource,
+  clearOnDuplicate,
+  fillExcerpt,
+  fillPublishedAt,
+  previewUrl,
+  suffixOnDuplicate,
+} from '../lib/postHooks'
 import { formatSlugHook } from '../lib/slug'
 import { revalidateSite } from '../lib/revalidate'
 
@@ -9,6 +17,7 @@ export const Posts: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'publishedAt', 'language'],
     group: 'Content',
+    preview: (doc) => previewUrl(doc, (slug) => `/blog/${slug}`),
   },
   access: {
     read: () => true,
@@ -17,6 +26,8 @@ export const Posts: CollectionConfig = {
     delete: ({ req: { user } }) => Boolean(user),
   },
   hooks: {
+    // Order matters: pasted HTML becomes content before the excerpt is derived
+    beforeChange: [applyHtmlSource, fillExcerpt, fillPublishedAt],
     afterChange: [() => revalidateSite()],
     afterDelete: [() => revalidateSite()],
   },
@@ -31,20 +42,39 @@ export const Posts: CollectionConfig = {
         position: 'sidebar',
         description: 'URL: /blog/<slug>. Generated from the title when left empty.',
       },
-      hooks: { beforeValidate: [formatSlugHook('title')] },
+      hooks: {
+        beforeValidate: [formatSlugHook('title')],
+        beforeDuplicate: [suffixOnDuplicate],
+      },
     },
     {
       name: 'excerpt',
       type: 'textarea',
-      admin: { description: 'Short summary for cards and meta descriptions.' },
+      admin: {
+        description:
+          'Short summary for cards and meta descriptions. Filled from the first paragraph when left empty.',
+      },
     },
     { name: 'content', type: 'richText' },
+    {
+      // Virtual: never stored — converted into `content` on save
+      name: 'contentHtml',
+      type: 'code',
+      virtual: true,
+      label: 'HTML source',
+      admin: {
+        language: 'html',
+        description:
+          'Paste HTML here to replace the content above when you save. The box empties itself afterwards.',
+      },
+    },
     { name: 'featuredImage', type: 'upload', relationTo: 'media' },
     {
       name: 'publishedAt',
       type: 'date',
       admin: { position: 'sidebar', date: { pickerAppearance: 'dayOnly' } },
       defaultValue: () => new Date().toISOString(),
+      hooks: { beforeDuplicate: [clearOnDuplicate] },
     },
     {
       name: 'language',

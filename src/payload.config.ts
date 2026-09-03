@@ -2,7 +2,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { buildConfig } from 'payload'
 import { postgresAdapter } from '@payloadcms/db-postgres'
-import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { BlocksFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
 import { s3Storage } from '@payloadcms/storage-s3'
 import sharp from 'sharp'
 
@@ -14,6 +14,7 @@ import { Listings } from './collections/Listings'
 import { Posts } from './collections/Posts'
 import { ContactSubmissions } from './collections/ContactSubmissions'
 import { SiteSettings } from './globals/SiteSettings'
+import { imageBlock } from './lib/lexicalBlocks'
 import { site } from './site.config'
 
 const filename = fileURLToPath(import.meta.url)
@@ -46,7 +47,12 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  editor: lexicalEditor(),
+  editor: lexicalEditor({
+    features: ({ defaultFeatures }) => [
+      ...defaultFeatures,
+      BlocksFeature({ blocks: [imageBlock] }),
+    ],
+  }),
   collections: [Users, Media, Categories, Areas, Listings, Posts, ContactSubmissions],
   globals: [SiteSettings],
   db: postgresAdapter({

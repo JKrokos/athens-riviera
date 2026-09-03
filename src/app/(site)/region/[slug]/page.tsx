@@ -4,10 +4,11 @@ import { notFound } from 'next/navigation'
 
 import { Breadcrumbs } from '../../../../components/Breadcrumbs'
 import { ListingCard } from '../../../../components/cards/ListingCard'
+import { Gallery, type GalleryImage } from '../../../../components/listing/Gallery'
 import { JsonLd } from '../../../../components/seo/JsonLd'
 import { getAreaBySlug, getAreas, getListings } from '../../../../lib/data'
 import { toListingCardData } from '../../../../lib/dto'
-import { mediaAlt, mediaUrl } from '../../../../lib/media'
+import { asMedia, mediaAlt, mediaUrl } from '../../../../lib/media'
 import { areaMeta, collectionPageJsonLd } from '../../../../lib/seo'
 import { site } from '../../../../site.config'
 import type { Listing } from '../../../../payload-types'
@@ -55,6 +56,14 @@ export default async function AreaPage({ params }: { params: Promise<Params> }) 
   const listings = await getListings({ areaId: area.id })
   const groups = groupByCategory(listings)
   const imageUrl = mediaUrl(area.image, 'hero')
+  const gallery: GalleryImage[] = (area.gallery ?? [])
+    .map((item) => {
+      const media = asMedia(item)
+      const url = mediaUrl(media, 'card')
+      if (!url) return null
+      return { url, largeUrl: mediaUrl(media, 'hero') ?? url, alt: mediaAlt(media, area.name) }
+    })
+    .filter((image): image is GalleryImage => image !== null)
 
   return (
     <>
@@ -93,6 +102,11 @@ export default async function AreaPage({ params }: { params: Promise<Params> }) 
 
       <section className="container-site py-10 sm:py-12">
         <Breadcrumbs items={[{ name: area.name }]} />
+        {gallery.length > 0 ? (
+          <div className="mb-12">
+            <Gallery images={gallery} name={area.name} />
+          </div>
+        ) : null}
         {groups.length === 0 ? (
           <p className="rounded-card border border-line bg-surface p-8 text-center text-ink-soft">
             No places listed in {area.name} yet — check back soon.

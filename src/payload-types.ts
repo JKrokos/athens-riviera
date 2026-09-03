@@ -158,6 +158,8 @@ export interface User {
   collection: 'users';
 }
 /**
+ * Upload photos at any size — originals are capped at 2560px on the long edge and card/hero sizes are generated automatically. Orientation from phone photos is preserved.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
@@ -249,7 +251,14 @@ export interface Area {
    * Shown on the area page and used as its meta description.
    */
   description?: string | null;
+  /**
+   * Cover image for the area card and page header.
+   */
   image?: (number | null) | Media;
+  /**
+   * Photo gallery shown on the area page.
+   */
+  gallery?: (number | Media)[] | null;
   /**
    * Show in the homepage "Best places" section.
    */
@@ -344,7 +353,7 @@ export interface Post {
    */
   slug?: string | null;
   /**
-   * Short summary for cards and meta descriptions.
+   * Short summary for cards and meta descriptions. Filled from the first paragraph when left empty.
    */
   excerpt?: string | null;
   content?: {
@@ -362,6 +371,10 @@ export interface Post {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Paste HTML here to replace the content above when you save. The box empties itself afterwards.
+   */
+  contentHtml?: string | null;
   featuredImage?: (number | null) | Media;
   publishedAt?: string | null;
   language?: ('en' | 'el') | null;
@@ -578,6 +591,7 @@ export interface AreasSelect<T extends boolean = true> {
   slug?: T;
   description?: T;
   image?: T;
+  gallery?: T;
   featured?: T;
   order?: T;
   updatedAt?: T;
@@ -636,6 +650,7 @@ export interface PostsSelect<T extends boolean = true> {
   slug?: T;
   excerpt?: T;
   content?: T;
+  contentHtml?: T;
   featuredImage?: T;
   publishedAt?: T;
   language?: T;
@@ -849,6 +864,18 @@ export interface CollectionsWidget {
     [k: string]: unknown;
   };
   width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ImageBlock".
+ */
+export interface ImageBlock {
+  image: number | Media;
+  align: 'left' | 'center' | 'right';
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'imageBlock';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -1,9 +1,13 @@
 import type { CollectionConfig } from 'payload'
 
+const webp = { format: 'webp', options: { quality: 82 } } as const
+
 export const Media: CollectionConfig = {
   slug: 'media',
   admin: {
     group: 'Content',
+    description:
+      'Upload photos at any size — originals are capped at 2560px on the long edge and card/hero sizes are generated automatically. Orientation from phone photos is preserved.',
   },
   access: {
     read: () => true,
@@ -13,11 +17,15 @@ export const Media: CollectionConfig = {
   },
   upload: {
     mimeTypes: ['image/*'],
+    // Originals are stored at most 2560px on the long edge (never enlarged);
+    // Payload auto-rotates from EXIF before resizing
+    resizeOptions: { width: 2560, height: 2560, fit: 'inside', withoutEnlargement: true },
     imageSizes: [
-      { name: 'thumb', width: 480 },
-      { name: 'card', width: 960 },
-      { name: 'hero', width: 1920 },
+      { name: 'thumb', width: 480, formatOptions: webp },
+      { name: 'card', width: 960, formatOptions: webp },
+      { name: 'hero', width: 1920, formatOptions: webp },
     ],
+    adminThumbnail: 'thumb',
   },
   fields: [
     { name: 'alt', type: 'text' },

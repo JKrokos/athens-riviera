@@ -11,7 +11,7 @@ export function BrandLogo({ onDark = false }: { onDark?: boolean }) {
         width={40}
         height={40}
         priority
-        className="h-10 w-10 rounded-full"
+        className="h-10 w-10 rounded-full object-contain"
       />
       <span className="flex flex-col">
         <span
